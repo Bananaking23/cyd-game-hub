@@ -1,0 +1,4 @@
+build/
+web/firmware/*.bin
+web/manifest-*.json
+__pycache__/
