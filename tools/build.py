@@ -17,6 +17,7 @@ SKETCH = os.path.join(ROOT, "firmware", "CydGameHub")
 WEB = os.path.join(ROOT, "web")
 OUT = os.path.join(ROOT, "build")
 
+ESP32_INDEX = "https://espressif.github.io/arduino-esp32/package_esp32_index.json"
 CORE = "esp32:esp32"
 CORE_VERSION = "2.0.17"
 LIBS = ["TFT_eSPI@2.5.43", "XPT2046_Touchscreen@1.4"]
@@ -84,12 +85,17 @@ def main():
     ap.add_argument("--version", default="1.0")
     ap.add_argument("--only", choices=list(VARIANTS), help="build just one variant")
     ap.add_argument("--skip-install", action="store_true", help="do not (re)install core/libraries")
+    ap.add_argument("--flash", action="store_true", help="after building, flash the board over USB with esptool (needs --only)")
+    ap.add_argument("--port", help="serial port for --flash, e.g. COM5 (default: auto-detect)")
     a = ap.parse_args()
 
+    if a.flash and not a.only:
+        sys.exit("--flash needs --only ili9341|st7789")
     cli = find_cli()
     if not a.skip_install:
-        run([cli, "core", "update-index"])
-        run([cli, "core", "install", "%s@%s" % (CORE, CORE_VERSION)])
+        # the ESP32 core is not in Arduino's default index, so its index URL must be passed explicitly
+        run([cli, "core", "update-index", "--additional-urls", ESP32_INDEX])
+        run([cli, "core", "install", "%s@%s" % (CORE, CORE_VERSION), "--additional-urls", ESP32_INDEX])
         run([cli, "lib", "install"] + LIBS)
 
     os.makedirs(os.path.join(WEB, "firmware"), exist_ok=True)
@@ -102,7 +108,7 @@ def main():
         shutil.rmtree(bdir, ignore_errors=True)
         extra = flags(v["defs"])
         # Windows/Linux alike: the whole thing is ONE argv element, so no shell quoting is involved.
-        run([cli, "compile", "--fqbn", FQBN, "--output-dir", bdir, "--warnings", "none",
+        run([cli, "compile", "--fqbn", FQBN, "--additional-urls", ESP32_INDEX, "--output-dir", bdir, "--warnings", "none",
              "--build-property", "compiler.cpp.extra_flags=" + extra, SKETCH])
         merged = glob.glob(os.path.join(bdir, "*.merged.bin"))
         dest = os.path.join(WEB, "firmware", "cyd-gamehub-%s.bin" % name)
@@ -123,6 +129,14 @@ def main():
         with open(os.path.join(WEB, "manifest-%s.json" % name), "w") as f:
             json.dump(manifest, f, indent=2)
         print("OK  %-8s %7d bytes -> %s" % (name, size, dest))
+    if a.flash:
+        img = os.path.join(WEB, "firmware", "cyd-gamehub-%s.bin" % a.only)
+        cmd = [sys.executable, "-m", "esptool", "--chip", "esp32", "--baud", "460800"]
+        if a.port:
+            cmd += ["--port", a.port]
+        run(cmd + ["write_flash", "0x0", img])
+        print("\nFlashed. The board restarts by itself; touch the three crosshairs to calibrate.")
+        return
     print("\nDone. Serve the flasher locally with:  python tools/serve.py")
 
 
