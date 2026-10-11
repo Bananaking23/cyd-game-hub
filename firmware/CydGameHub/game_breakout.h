@@ -9,7 +9,7 @@ static const int COLS = 10, ROWS = 6, BW = 32, BH = 12;   // brick cell (the dra
 static const int BRY0 = 48;                              // top of the brick block
 static const int WALL_Y = PF_Y + 13;                     // top wall line; lives / level strip above it
 static const int PAD_Y = 214, PAD_H = 7, PAD_SPD = 20;
-static const int BR = 3;                                 // ball half size (7x7 drawn)
+static const int BALL_R = 3;                                 // ball half size (7x7 drawn)
 static const int LOSE_Y = 232;
 
 static const uint16_t ROW_COL[ROWS] = {C_RED, C_ORANGE, C_YELLOW, C_GREEN, C_CYAN, C_MAGENTA};
@@ -52,8 +52,8 @@ static void drawLevel() {
   text(b, SCR_W - 6, PF_Y + 3, 1, C_LGREY, TR_DATUM);
 }
 
-static void drawBall(int x, int y) { tft.fillCircle(x, y, BR, C_WHITE); }
-static void eraseBall() { tft.fillRect(lbx - BR, lby - BR, 2 * BR + 1, 2 * BR + 1, C_BLACK); }
+static void drawBall(int x, int y) { tft.fillCircle(x, y, BALL_R, C_WHITE); }
+static void eraseBall() { tft.fillRect(lbx - BALL_R, lby - BALL_R, 2 * BALL_R + 1, 2 * BALL_R + 1, C_BLACK); }
 
 static void drawPaddle() {
   tft.fillRoundRect(padX, PAD_Y, padW, PAD_H, 3, PAD_COL);
@@ -82,7 +82,7 @@ static void hintClear() { tft.fillRect(SCR_W / 2 - 110, 159, 220, 22, C_BLACK); 
 
 static void placeBallOnPaddle() {
   bx = (float)(padX + padW / 2);
-  by = (float)(PAD_Y - BR - 1);
+  by = (float)(PAD_Y - BALL_R - 1);
   vx = vy = 0;
 }
 
@@ -140,10 +140,10 @@ static bool hitCell(int px, int py) {
 static bool ballHits(float fx, float fy) {
   int x = (int)(fx + 0.5f), y = (int)(fy + 0.5f);
   bool h = false;
-  if (hitCell(x - BR, y - BR)) h = true;
-  if (hitCell(x + BR, y - BR)) h = true;
-  if (hitCell(x - BR, y + BR)) h = true;
-  if (hitCell(x + BR, y + BR)) h = true;
+  if (hitCell(x - BALL_R, y - BALL_R)) h = true;
+  if (hitCell(x + BALL_R, y - BALL_R)) h = true;
+  if (hitCell(x - BALL_R, y + BALL_R)) h = true;
+  if (hitCell(x + BALL_R, y + BALL_R)) h = true;
   return h;
 }
 
@@ -193,26 +193,26 @@ static void physics() {
   for (int k = 0; k < n && state == 1; k++) {
     // horizontal axis
     float nx = bx + sx;
-    if (nx - BR < 0) { nx = (float)BR; vx = -vx; sx = -sx; }
-    else if (nx + BR > SCR_W - 1) { nx = (float)(SCR_W - 1 - BR); vx = -vx; sx = -sx; }
+    if (nx - BALL_R < 0) { nx = (float)BALL_R; vx = -vx; sx = -sx; }
+    else if (nx + BALL_R > SCR_W - 1) { nx = (float)(SCR_W - 1 - BALL_R); vx = -vx; sx = -sx; }
     if (ballHits(nx, by)) { vx = -vx; sx = -sx; }
     else bx = nx;
     // vertical axis
     float ny = by + sy;
-    if (ny - BR < WALL_Y + 1) { ny = (float)(WALL_Y + 1 + BR); vy = -vy; sy = -sy; }
+    if (ny - BALL_R < WALL_Y + 1) { ny = (float)(WALL_Y + 1 + BALL_R); vy = -vy; sy = -sy; }
     if (ballHits(bx, ny)) { vy = -vy; sy = -sy; }
     else by = ny;
     // paddle
-    if (vy > 0 && by + BR >= PAD_Y && by <= PAD_Y + PAD_H &&
-        bx + BR >= padX && bx - BR <= padX + padW) {
-      float t = (bx - (float)(padX + padW / 2)) / (float)(padW / 2 + BR);
+    if (vy > 0 && by + BALL_R >= PAD_Y && by <= PAD_Y + PAD_H &&
+        bx + BALL_R >= padX && bx - BALL_R <= padX + padW) {
+      float t = (bx - (float)(padX + padW / 2)) / (float)(padW / 2 + BALL_R);
       if (t > 1.0f) t = 1.0f;
       if (t < -1.0f) t = -1.0f;
       float sp = curSpeed();
       vx = t * 0.85f * sp;
       if (fabsf(vx) < 0.4f) vx = (vx < 0 ? -0.4f : 0.4f);
       vy = -sqrtf(sp * sp - vx * vx);
-      by = (float)(PAD_Y - BR - 1);
+      by = (float)(PAD_Y - BALL_R - 1);
       sx = vx / (float)n;
       sy = vy / (float)n;
       beep(300, 25);
